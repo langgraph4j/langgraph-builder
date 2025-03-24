@@ -85,10 +85,12 @@ export default function App() {
   const { edgeLabels, updateEdgeLabel } = useEdgeLabel()
   const [activeFile, setActiveFile] = useState<'stub' | 'implementation' | 'spec'>('stub')
   const [generatedFiles, setGeneratedFiles] = useState<{
+    java?: { stub?: string; implementation?: string }
     python?: { stub?: string; implementation?: string }
     typescript?: { stub?: string; implementation?: string }
+    
   }>({})
-  const [language, setLanguage] = useState<'python' | 'typescript'>('python')
+  const [language, setLanguage] = useState<'java' | 'python' | 'typescript'>('java')
   const [initialOnboardingComplete, setInitialOnboardingComplete] = useState<boolean | null>(null)
   const [currentOnboardingStep, setCurrentOnboardingStep] = useState(0)
   const [isLoading, setIsLoading] = useState(false)
@@ -426,7 +428,7 @@ export default function App() {
       type: 'tooltip',
       title: '7 of 7: Generate Code',
       content:
-        "Once you're finished designing the graph, you can generate boilerplate code for it in Python and TypeScript",
+        "Once you're finished designing the graph, you can generate boilerplate code for it in Java, Python and TypeScript",
       position: {
         top: '100px',
         right: '10px',
@@ -670,7 +672,7 @@ export default function App() {
           },
         }))
 
-  function generateSpec(edges: any, currentLanguage: 'python' | 'typescript' = language): string {
+  function generateSpec(edges: any, currentLanguage: 'java' | 'python' | 'typescript' = language): string {
     // Step 1: Separate normal edges and animated edges
     const normalEdges: any[] = edges.filter((edge: any) => !edge.animated)
     const animatedEdges: any[] = edges.filter((edge: any) => edge.animated === true)
@@ -790,7 +792,7 @@ export default function App() {
     console.log(yamlString, 'yaml string')
 
     // Add descriptive comment at the top
-    const fileExt = currentLanguage === 'python' ? '.py' : '.ts'
+    const fileExt = currentLanguage === 'python' ? '.py' :  currentLanguage === 'java' ? '.java' : '.ts'
     const comment = `# This YAML was auto-generated based on an architecture 
 # designed in LangGraph Builder (https://build.langchain.com).
 #
@@ -809,20 +811,31 @@ export default function App() {
   }
 
   const handleLanguageChange = async (option: string) => {
-    const newLanguage = option.toLowerCase() as 'python' | 'typescript'
+    const newLanguage = option.toLowerCase() as 'java' | 'python' | 'typescript'
     setLanguage(newLanguage)
     // Update the YAML spec with new file extensions when language changes
     setGeneratedYamlSpec(generateSpec(edges, newLanguage))
   }
 
-  const generateCodeWithLanguage = async (lang: 'python' | 'typescript' = language) => {
+  const generateCodeWithLanguage = async (lang: 'java' |  'python' | 'typescript' = language) => {
     try {
       setIsLoading(true)
       setGenerateCodeModalOpen(true)
       const spec = generateSpec(edges, lang)
       setGeneratedYamlSpec(spec)
 
-      const [pythonResponse, typescriptResponse] = await Promise.all([
+      const [javaResponse, pythonResponse, typescriptResponse] = await Promise.all([
+        fetch('/api/generate-code', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            spec: spec,
+            language: 'java',
+            format: 'yaml',
+          }),
+        }),
         fetch('/api/generate-code', {
           method: 'POST',
           headers: {
@@ -845,9 +858,10 @@ export default function App() {
             format: 'yaml',
           }),
         }),
+        
       ])
 
-      const [pythonData, typescriptData] = await Promise.all([pythonResponse.json(), typescriptResponse.json()])
+      const [javaData, pythonData, typescriptData] = await Promise.all([ javaResponse.json(), pythonResponse.json(), typescriptResponse.json()])
 
       setGeneratedFiles({
         python: {
@@ -857,6 +871,10 @@ export default function App() {
         typescript: {
           stub: typescriptData.stub,
           implementation: typescriptData.implementation,
+        },
+        java: {
+          stub: javaData.stub,
+          implementation: javaData.implementation,
         },
       })
       setActiveFile('spec')
@@ -869,11 +887,11 @@ export default function App() {
   }
 
   const handleGenerateCode = () => {
-    generateCodeWithLanguage('python')
+    generateCodeWithLanguage('java')
   }
 
   const activeCode = activeFile === 'spec' ? generatedYamlSpec : generatedFiles[language]?.[activeFile] || ''
-  const fileExtension = language === 'python' ? '.py' : '.ts'
+  const fileExtension = language === 'python' ? '.py' : language === 'java' ? '.java' : '.ts'
 
   // New helper to copy active code to the clipboard
   const copyActiveCode = () => {
@@ -966,6 +984,14 @@ export default function App() {
       if (generatedFiles.python?.implementation) {
         zip.file('implementation.py', generatedFiles.python.implementation)
       }
+    } else if (language === 'java') {
+      if (generatedFiles.java?.stub) {
+        zip.file('GraphAgentBuilder.java', generatedFiles.java.stub)
+      }
+      if (generatedFiles.java?.implementation) {
+        zip.file('GraphAgentBuilderImpl.java', generatedFiles.java.implementation)
+      }
+
     } else {
       if (generatedFiles.typescript?.stub) {
         zip.file('stub.ts', generatedFiles.typescript.stub)
@@ -1279,7 +1305,7 @@ export default function App() {
                           <Download size={18} />
                         </button>
                         <div className='max-w-xs pr-3'>
-                          <MultiButton onSelectionChange={(option) => handleLanguageChange(option)} />
+                          <MultiButton lang={language} onSelectionChange={(option) => handleLanguageChange(option)} />
                         </div>
                         <button
                           className='font-bold pr-3 text-gray-400 hover:text-gray-600 transition-colors duration-300 ease-in-out'
@@ -1327,7 +1353,7 @@ export default function App() {
                           <Highlight
                             theme={themes.nightOwl}
                             code={activeCode}
-                            language={activeFile === 'spec' ? 'yaml' : language === 'python' ? 'python' : 'typescript'}
+                            language={activeFile === 'spec' ? 'yaml' : language === 'python' ? 'python' : language === 'java' ? 'java' : 'typescript'}
                           >
                             {({ style, tokens, getLineProps, getTokenProps }) => (
                               <pre className='p-3 overflow-auto h-full max-h-full' style={{ ...style, height: '100%' }}>
