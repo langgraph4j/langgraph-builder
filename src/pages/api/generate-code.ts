@@ -7,8 +7,15 @@ const URL = ( req: NextApiRequest ) => {
 
   const { language } = req.body
   if( language === 'java' ) {
-    const { headers: { origin } } = req;
-    return `${origin}/api/langgraph4j-gen`;
+    if( process.env.RUNNING_IN_DOCKER ) {
+      const { headers: { host, "x-forwarded-proto": protocol = 'http' }  } = req;
+      const port = host?.includes(':') ? host.split(':')[1] : '80'
+      return `${protocol}://host.docker.internal:${port}/api/langgraph4j-gen`;
+    }
+    else {
+      const { headers: { origin } } = req;
+      return `${origin}/api/langgraph4j-gen`;  
+    }
   }
   return LANGGRAPH_API_URL;
 
