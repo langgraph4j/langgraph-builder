@@ -25,11 +25,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  console.log( req );
-
-  if( process.env.LANGGRAPH_API_URL ) {
-
-  }
 
   try {
     const { spec, language, format } = req.body
