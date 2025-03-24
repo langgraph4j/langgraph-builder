@@ -1,5 +1,6 @@
 import { assert } from 'console'
 import type { NextApiRequest, NextApiResponse } from 'next'
+import { spawn } from 'child_process'
 
 type GenerateResponse = {
   stub?: string
@@ -15,12 +16,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
   try {
     const { spec, language, format } = req.body
 
-    assert(format === 'json', `Unsupported fromat: ${format}`)
-
-
+    const { stub, implementation } = await callJavaGenerator( spec )    
+    
     return res.status(200).json({
-      stub: "STUB",
-      implementation: "IMPLEMENTATION",
+      stub,
+      implementation
     })
   } catch (error) {
     console.error('Error generating code:', error)
@@ -30,3 +30,73 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
   }
 }
 
+async function callJavaGenerator( spec: string ) {
+  console.debug( "SPEC", spec );
+  var result = ''
+  var error = ''
+
+  return new Promise<GenerateResponse>((resolve, reject) => {
+
+    if( !process.env.LANGRAPH4J_GEN ) {
+      reject( { error: "LANGRAPH4J_GEN environment variable not set" } );
+      return;
+    }
+    
+    // Spawn the external program (e.g., a Python script)
+    const javaGen = spawn('java', [  '-jar', process.env.LANGRAPH4J_GEN ]);
+
+    // Send input to the external program
+    javaGen.stdin.write(spec);
+    javaGen.stdin.write('\n');
+    javaGen.stdin.end();
+
+    // Receive output from the external program
+    javaGen.stdout.on('data', data => {
+      result += data.toString();
+    });
+
+    // Handle any errors
+    javaGen.stderr.on('data', (data) => {
+      error += data.toString();
+    });
+
+    // When the program exits
+    javaGen.on('close', (code) => {
+      console.log(`External program exited with code ${code}`);
+
+      if( error!=='' ) {
+        reject( { error } );
+      }
+      else {
+        try {
+          resolve( JSON.parse(result) );
+        } catch (error) {
+          reject( { error } );
+        }
+        
+      }
+    });
+  });
+}
+
+
+// TEST
+
+// const yaml = `
+// name: CustomAgent
+// nodes:
+//   - name: Node 1
+// edges:
+//   - from: __start__
+//     to: Node 1
+//   - from: Node 1
+//     to: __end__
+// `
+
+// callJavaGenerator( yaml )
+//   .then( result => {
+//     console.log( "RESULT", result );
+//   })
+//   .catch( error => {
+//     console.error( "ERROR", error );
+//   })
