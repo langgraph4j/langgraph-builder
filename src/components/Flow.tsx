@@ -94,7 +94,6 @@ export default function App() {
   const [initialOnboardingComplete, setInitialOnboardingComplete] = useState<boolean | null>(null)
   const [currentOnboardingStep, setCurrentOnboardingStep] = useState(0)
   const [isLoading, setIsLoading] = useState(false)
-  const [isSaving, setIsSaving] = useState(false)
   const [infoPanelOpen, setInfoPanelOpen] = useState(false)
   const [justCopied, setJustCopied] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
@@ -1028,82 +1027,16 @@ export default function App() {
           </svg>
           Templates
         </button>
-        <button
-          onClick={() => setLoadGraphModalOpen(true)}
-          className={`flex items-center gap-2 px-3 py-2 bg-white rounded-lg shadow-md transition-shadow ${
-            !initialOnboardingComplete ? 'cursor-not-allowed opacity-70' : 'hover:shadow-lg'
-          }`}
-          disabled={!initialOnboardingComplete}
-        >
-        <svg
-          xmlns='http://www.w3.org/2000/svg'
-          width='16'
-          height='16'
-          viewBox='0 0 24 24'
-          fill='none'
-          stroke='currentColor'
-          strokeWidth='2'
-          strokeLinecap='round'
-          strokeLinejoin='round'
-        >
-        <path d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'/> 
-        <polyline points='17 8 12 3 7 8'/> 
-        <line x1='12' y1='3' x2='12' y2='15'/>
-        </svg>
-        Load
-        </button>
-        <button
-          onClick={async () => {
-            if (!reactFlowInstance) return
-            const viewport = reactFlowInstance.getViewport()
-            try {
-              setIsSaving(true)
-              const response = await fetch('/api/save-graph', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  name: 'graph_name',
-                  nodes,
-                  edges,
-                  viewport,
-                }),
-              })
-              const result = await response.json()
-              console.log('Graph saved:', result)
-            } catch (error) {
-              console.error('Error saving graph:', error)
-            } finally {
-              setIsSaving(false)
-            }
-          }}
-          className={`flex items-center gap-2 px-3 py-2 bg-white rounded-lg shadow-md transition-shadow ${
-            !initialOnboardingComplete ? 'cursor-not-allowed opacity-70' : 'hover:shadow-lg'
-          }`}
-          disabled={!initialOnboardingComplete}
-        >
-          {isSaving ? (
-              <div className="w-4 h-4 border-2 border-[#2F6868] border-t-transparent rounded-full animate-spin" />
-          ) : (
-              <svg
-                xmlns='http://www.w3.org/2000/svg'
-                width='16'
-                height='16'
-                viewBox='0 0 24 24'
-                fill='none'
-                stroke='currentColor'
-                strokeWidth='2'
-                strokeLinecap='round'
-                strokeLinejoin='round'
-              >
-                <path d='M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z'></path>
-                <polyline points='17 21 17 13 7 13 7 21'></polyline>
-                <polyline points='7 3 7 8 15 8'></polyline>
-              </svg>
-          )}
-          Save
-        </button>
+
+        <LoadGraphButton  onClick={() => setLoadGraphModalOpen(true)} 
+                          initialOnboardingComplete={initialOnboardingComplete} />
+
+        <SaveGraphButton  initialOnboardingComplete={initialOnboardingComplete} 
+                          reactFlowInstance={reactFlowInstance}
+                          title={graphTitle}
+                          nodes={nodes}
+                          edges={edges}
+                          />
         <TitleInput title={graphTitle} onChange={ newTitle => setGraphTitle(newTitle) } />
       </div>
       <div className='absolute top-5 right-5 z-50 flex gap-2'>
@@ -1446,6 +1379,7 @@ export default function App() {
         <LoadGraphModal isOpen={loadGraphModalOpen} 
                         onClose={() => setLoadGraphModalOpen(false)} 
                         onLoadGraph={ data => {
+                            setGraphTitle(data.name)
                             setNodes( data.nodes )
                             setEdges( data.edges )
                             reactFlowInstance?.setViewport( data.viewport )
@@ -1454,7 +1388,119 @@ export default function App() {
   )
 }
 
+////////////////////////////////////////////////////////////////////////////
+// SaveGraphButton
+////////////////////////////////////////////////////////////////////////////
 
+type SaveGraphButtonProps = {
+  initialOnboardingComplete: boolean | null
+  reactFlowInstance: ReactFlowInstance | null,
+  title: string,
+  nodes: CustomNodeType[],
+  edges: CustomEdgeType[]
+}
+
+const SaveGraphButton = ({ title, initialOnboardingComplete, reactFlowInstance, nodes, edges }: SaveGraphButtonProps ) => {
+
+  const [isSaving, setIsSaving] = useState(false) 
+
+return  <button
+  onClick={async () => {
+    
+    if (!reactFlowInstance) return
+
+    const viewport = reactFlowInstance.getViewport()
+    try {
+      setIsSaving(true)
+      const response = await fetch('/api/save-graph', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: title,
+          nodes,
+          edges,
+          viewport,
+        }),
+      })
+      const result = await response.json()
+      console.log('Graph saved:', result)
+    } catch (error) {
+      console.error('Error saving graph:', error)
+    } finally {
+      setIsSaving(false)
+    }
+  }}
+  className={`flex items-center gap-2 px-3 py-2 bg-white rounded-lg shadow-md transition-shadow ${
+    !initialOnboardingComplete ? 'cursor-not-allowed opacity-70' : 'hover:shadow-lg'
+  }`}
+  disabled={!initialOnboardingComplete}
+>
+  {isSaving ? (
+      <div className="w-4 h-4 border-2 border-[#2F6868] border-t-transparent rounded-full animate-spin" />
+  ) : (
+      <svg
+        xmlns='http://www.w3.org/2000/svg'
+        width='16'
+        height='16'
+        viewBox='0 0 24 24'
+        fill='none'
+        stroke='currentColor'
+        strokeWidth='2'
+        strokeLinecap='round'
+        strokeLinejoin='round'
+      >
+        <path d='M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z'></path>
+        <polyline points='17 21 17 13 7 13 7 21'></polyline>
+        <polyline points='7 3 7 8 15 8'></polyline>
+      </svg>
+  )}
+  Save
+</button>
+}
+
+////////////////////////////////////////////////////////////////////////////
+// LoadGraphButton
+////////////////////////////////////////////////////////////////////////////
+
+type LoadGraphButtonProps = {
+  onClick: () => void,
+  initialOnboardingComplete: boolean | null
+}
+
+const LoadGraphButton = ({ initialOnboardingComplete, onClick }: LoadGraphButtonProps ) => {
+
+return <button
+  onClick={onClick}
+  className={`flex items-center gap-2 px-3 py-2 bg-white rounded-lg shadow-md transition-shadow ${
+    !initialOnboardingComplete ? 'cursor-not-allowed opacity-70' : 'hover:shadow-lg'
+  }`}
+  disabled={!initialOnboardingComplete}
+  >
+    <svg
+    xmlns='http://www.w3.org/2000/svg'
+    width='16'
+    height='16'
+    viewBox='0 0 24 24'
+    fill='none'
+    stroke='currentColor'
+    strokeWidth='2'
+    strokeLinecap='round'
+    strokeLinejoin='round'
+    >
+      <path d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'/> 
+      <polyline points='17 8 12 3 7 8'/> 
+      <line x1='12' y1='3' x2='12' y2='15'/>
+    </svg>
+  Load
+</button>
+
+}
+
+////////////////////////////////////////////////////////////////////////////
+// TitleInput
+////////////////////////////////////////////////////////////////////////////
 
 type TitleInputProps = {
   title: string,
