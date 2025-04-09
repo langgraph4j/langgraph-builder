@@ -101,6 +101,7 @@ export default function App() {
   const [generatedYamlSpec, setGeneratedYamlSpec] = useState<string>('')
   const [isTemplatesPanelOpen, setIsTemplatesPanelOpen] = useState(false)
   const [loadGraphModalOpen, setLoadGraphModalOpen] = useState(false)
+  const [graphTitle, setGraphTitle] = useState('Unnamed')
 
   const nodesRef = useRef(nodes)
   const edgesRef = useRef(edges)
@@ -1103,6 +1104,7 @@ export default function App() {
           )}
           Save
         </button>
+        <TitleInput title={graphTitle} onChange={ newTitle => setGraphTitle(newTitle) } />
       </div>
       <div className='absolute top-5 right-5 z-50 flex gap-2'>
         <div className='flex flex-row gap-2'>
@@ -1450,4 +1452,28 @@ export default function App() {
                         }} />
     </div>
   )
+}
+
+
+
+type TitleInputProps = {
+  title: string,
+  onChange: (title: string) => void
+}
+
+const TitleInput = ({ title, onChange }: TitleInputProps ) => {
+  const [focused, setFocused] = useState(false)
+
+  return  <input
+    type="text"
+    placeholder="Graph Title"
+    className={`px-3 py-2 text-lg rounded-md transition-all duration-150 outline-none bg-transparent ${
+      focused ? 'border border-[#2F6868]' : 'border-transparent'
+    }`}
+    value={title}
+    onChange={(e) => onChange(e.target.value)}
+    onFocus={() => setFocused(true)}
+    onBlur={() => setFocused(false)}
+  />
+
 }
