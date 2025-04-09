@@ -11,6 +11,7 @@ import {
   type OnConnect,
   applyNodeChanges,
   type Edge,
+  type ReactFlowInstance
 } from '@xyflow/react'
 import { MarkerType } from 'reactflow'
 import '@xyflow/react/dist/style.css'
@@ -77,7 +78,7 @@ export default function App() {
   const [generateCodeModalOpen, setGenerateCodeModalOpen] = useState(false)
   const [showOnboardingToast, setShowOnboardingToast] = useState(false)
   const reactFlowWrapper = useRef<any>(null)
-  const [reactFlowInstance, setReactFlowInstance] = useState<any>(null)
+  const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance<Node, Edge> | null>(null)
   const [isConnecting, setIsConnecting] = useState(false)
   const { buttonTexts } = useButtonText()
   const [maxNodeLength, setMaxNodeLength] = useState(0)
@@ -588,31 +589,33 @@ export default function App() {
       if (reactFlowWrapper) {
         const reactFlowBounds = reactFlowWrapper.current.getBoundingClientRect()
 
-        const position = reactFlowInstance.screenToFlowPosition({
-          x: event.clientX - reactFlowBounds.left,
-          y: event.clientY - reactFlowBounds.top,
-        })
+        if( reactFlowInstance ) {
+          const position = reactFlowInstance.screenToFlowPosition({
+            x: event.clientX - reactFlowBounds.left,
+            y: event.clientY - reactFlowBounds.top,
+          })
 
-        const newNode: CustomNodeType = {
-          id: `node-${maxNodeLength + 1}`,
-          type: 'custom',
-          position,
-          selected: true,
-          data: { label: `Node ${maxNodeLength + 1}` },
+          const newNode: CustomNodeType = {
+            id: `node-${maxNodeLength + 1}`,
+            type: 'custom',
+            position,
+            selected: true,
+            data: { label: `Node ${maxNodeLength + 1}` },
+          }
+          setMaxNodeLength(maxNodeLength + 1)
+
+          setNodes((prevNodes) => {
+            return applyNodeChanges(
+              [
+                {
+                  type: 'add',
+                  item: newNode,
+                },
+              ],
+              prevNodes,
+            )
+          })
         }
-        setMaxNodeLength(maxNodeLength + 1)
-
-        setNodes((prevNodes) => {
-          return applyNodeChanges(
-            [
-              {
-                type: 'add',
-                item: newNode,
-              },
-            ],
-            prevNodes,
-          )
-        })
       }
     },
     [nodes, setNodes, reactFlowInstance, reactFlowWrapper, isConnecting, applyNodeChanges, maxNodeLength],
@@ -1030,6 +1033,51 @@ export default function App() {
           }`}
           disabled={!initialOnboardingComplete}
         >
+        <svg
+          xmlns='http://www.w3.org/2000/svg'
+          width='16'
+          height='16'
+          viewBox='0 0 24 24'
+          fill='none'
+          stroke='currentColor'
+          strokeWidth='2'
+          strokeLinecap='round'
+          strokeLinejoin='round'
+        >
+        <path d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'/> 
+        <polyline points='17 8 12 3 7 8'/> 
+        <line x1='12' y1='3' x2='12' y2='15'/>
+        </svg>
+        Load
+        </button>
+        <button
+          onClick={async () => {
+            if (!reactFlowInstance) return
+            const viewport = reactFlowInstance.getViewport()
+            try {
+              const response = await fetch('/api/save-graph', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  name: 'graph_name',
+                  nodes,
+                  edges,
+                  viewport,
+                }),
+              })
+              const result = await response.json()
+              console.log('Graph saved:', result)
+            } catch (error) {
+              console.error('Error saving graph:', error)
+            }
+          }}
+          className={`flex items-center gap-2 px-3 py-2 bg-white rounded-lg shadow-md transition-shadow ${
+            !initialOnboardingComplete ? 'cursor-not-allowed opacity-70' : 'hover:shadow-lg'
+          }`}
+          disabled={!initialOnboardingComplete}
+        >
           <svg
             xmlns='http://www.w3.org/2000/svg'
             width='16'
@@ -1041,11 +1089,11 @@ export default function App() {
             strokeLinecap='round'
             strokeLinejoin='round'
           >
-            <path d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'/>
-            <polyline points='7 10 12 15 17 10'/>
-            <line x1='12' y1='15' x2='12' y2='3'/>
+            <path d='M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z'></path>
+            <polyline points='17 21 17 13 7 13 7 21'></polyline>
+            <polyline points='7 3 7 8 15 8'></polyline>
           </svg>
-          Load Graph
+          Save
         </button>
       </div>
       <div className='absolute top-5 right-5 z-50 flex gap-2'>
@@ -1385,7 +1433,13 @@ export default function App() {
           </MuiModal>
         </div>
       </div>
-        <LoadGraphModal isOpen={loadGraphModalOpen} onClose={() => setLoadGraphModalOpen(false)} />
+        <LoadGraphModal isOpen={loadGraphModalOpen} 
+                        onClose={() => setLoadGraphModalOpen(false)} 
+                        onLoadGraph={ data => {
+                            setNodes( data.nodes )
+                            setEdges( data.edges )
+                            reactFlowInstance?.setViewport( data.viewport )
+                        }} />
     </div>
   )
 }
