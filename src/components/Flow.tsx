@@ -99,8 +99,11 @@ export default function App() {
   const [isMobile, setIsMobile] = useState(false)
   const [generatedYamlSpec, setGeneratedYamlSpec] = useState<string>('')
   const [isTemplatesPanelOpen, setIsTemplatesPanelOpen] = useState(false)
+
   const [loadGraphModalOpen, setLoadGraphModalOpen] = useState(false)
   const [graphTitle, setGraphTitle] = useState('Unnamed')
+  const [isGraphDirty, setGraphDirty] = useState(false)
+  
 
   const nodesRef = useRef(nodes)
   const edgesRef = useRef(edges)
@@ -511,6 +514,7 @@ export default function App() {
   const handleNodesChange = useCallback(
     (changes: any) => {
       onNodesChange(changes)
+      setGraphDirty(true)
     },
     [onNodesChange],
   )
@@ -518,6 +522,7 @@ export default function App() {
   const handleEdgesChange = useCallback(
     (changes: any) => {
       onEdgesChange(changes)
+      setGraphDirty(true)
     },
     [onEdgesChange],
   )
@@ -1031,13 +1036,17 @@ export default function App() {
         <LoadGraphButton  onClick={() => setLoadGraphModalOpen(true)} 
                           initialOnboardingComplete={initialOnboardingComplete} />
 
-        <SaveGraphButton  initialOnboardingComplete={initialOnboardingComplete} 
+        <SaveGraphButton  enabled={isGraphDirty}
+                          onSaved={() => setGraphDirty(false)} 
+                          initialOnboardingComplete={initialOnboardingComplete} 
                           reactFlowInstance={reactFlowInstance}
                           title={graphTitle}
                           nodes={nodes}
                           edges={edges}
                           />
-        <TitleInput title={graphTitle} onChange={ newTitle => setGraphTitle(newTitle) } />
+        <TitleInput title={graphTitle} 
+                    savePending={isGraphDirty} 
+                    onChange={ newTitle => setGraphTitle(newTitle) } />
       </div>
       <div className='absolute top-5 right-5 z-50 flex gap-2'>
         <div className='flex flex-row gap-2'>
@@ -1393,6 +1402,8 @@ export default function App() {
 ////////////////////////////////////////////////////////////////////////////
 
 type SaveGraphButtonProps = {
+  enabled: boolean,
+  onSaved: () => void,
   initialOnboardingComplete: boolean | null
   reactFlowInstance: ReactFlowInstance | null,
   title: string,
@@ -1400,7 +1411,14 @@ type SaveGraphButtonProps = {
   edges: CustomEdgeType[]
 }
 
-const SaveGraphButton = ({ title, initialOnboardingComplete, reactFlowInstance, nodes, edges }: SaveGraphButtonProps ) => {
+const SaveGraphButton = ({ 
+  enabled,
+  onSaved,
+  title, 
+  initialOnboardingComplete, 
+  reactFlowInstance, 
+  nodes, 
+  edges }: SaveGraphButtonProps ) => {
 
   const [isSaving, setIsSaving] = useState(false) 
 
@@ -1425,6 +1443,7 @@ return  <button
         }),
       })
       const result = await response.json()
+      onSaved()
       console.log('Graph saved:', result)
     } catch (error) {
       console.error('Error saving graph:', error)
@@ -1433,9 +1452,9 @@ return  <button
     }
   }}
   className={`flex items-center gap-2 px-3 py-2 bg-white rounded-lg shadow-md transition-shadow ${
-    !initialOnboardingComplete ? 'cursor-not-allowed opacity-70' : 'hover:shadow-lg'
+    !initialOnboardingComplete || !enabled ? 'cursor-not-allowed opacity-70' : 'hover:shadow-lg'
   }`}
-  disabled={!initialOnboardingComplete}
+  disabled={!initialOnboardingComplete || !enabled}
 >
   {isSaving ? (
       <div className="w-4 h-4 border-2 border-[#2F6868] border-t-transparent rounded-full animate-spin" />
@@ -1503,23 +1522,29 @@ return <button
 ////////////////////////////////////////////////////////////////////////////
 
 type TitleInputProps = {
+  savePending: boolean,
   title: string,
   onChange: (title: string) => void
 }
 
-const TitleInput = ({ title, onChange }: TitleInputProps ) => {
+const TitleInput = ({ savePending, title, onChange }: TitleInputProps ) => {
   const [focused, setFocused] = useState(false)
 
-  return  <input
-    type="text"
-    placeholder="Graph Title"
-    className={`px-3 py-2 text-lg rounded-md transition-all duration-150 outline-none bg-transparent ${
-      focused ? 'border border-[#2F6868]' : 'border-transparent'
-    }`}
-    value={title}
-    onChange={(e) => onChange(e.target.value)}
-    onFocus={() => setFocused(true)}
-    onBlur={() => setFocused(false)}
-  />
+  return (
+    <div className="flex items-center">
+      {savePending && <span className="ml-1 text-2xl text-gray-600">*</span>}
+      <input
+        type="text"
+        placeholder="Graph Title"
+        className={`px-3 py-2 text-lg rounded-md transition-all duration-150 outline-none bg-transparent ${
+          focused ? 'border border-[#2F6868]' : 'border-transparent'
+        } ${savePending ? 'italic text-gray-600' : ''}`}
+        value={title}
+        onChange={(e) => onChange(e.target.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+      />
+    </div>
+  )
 
 }
