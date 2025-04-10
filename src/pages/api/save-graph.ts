@@ -2,7 +2,12 @@ import { NextApiRequest, NextApiResponse } from "next"
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 
+
+const WORKSPACE_DIR = 'workspace'
+
 type SaveResponse = { message: string } | { error: string }
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse<SaveResponse>) {
   
@@ -16,10 +21,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
 
     const { name = 'graph' } = req.body
     await fs.writeFile(
-      path.join(process.cwd(), 'public', `${name}.json`),
+      path.join(process.cwd(), WORKSPACE_DIR, `${name}.json`),
       JSON.stringify(req.body, null, 2),
       'utf-8'
     )
+
+    // await sleep(2000)
     return res.status(200).json({ message: 'Graph saved successfully' })
   
   }
