@@ -36,6 +36,17 @@ const LoadingSpinner = () => (
   </div>
 )
 
+
+type SourceFile = {
+  path: string
+  content: string
+}
+interface GeneratedFiles {
+  python?: { stub?: string; implementation?: string };
+  typescript?: { stub?: string; implementation?: string };
+  java?: { stub?:SourceFile, implementation?:SourceFile, extraFiles?: Array<SourceFile> };
+}
+
 type OnboardingStep = {
   key: string
   type: 'modal' | 'tooltip'
@@ -86,12 +97,7 @@ export default function App() {
   const [conditionalGroupCount, setConditionalGroupCount] = useState(0)
   const { edgeLabels, updateEdgeLabel } = useEdgeLabel()
   const [activeFile, setActiveFile] = useState<'stub' | 'implementation' | 'spec'>('stub')
-  const [generatedFiles, setGeneratedFiles] = useState<{
-    java?: { stub?: string; implementation?: string }
-    python?: { stub?: string; implementation?: string }
-    typescript?: { stub?: string; implementation?: string }
-    
-  }>({})
+  const [generatedFiles, setGeneratedFiles] = useState<GeneratedFiles>({})
   const [language, setLanguage] = useState<'java' | 'python' | 'typescript'>('java')
   const [initialOnboardingComplete, setInitialOnboardingComplete] = useState<boolean | null>(null)
   const [currentOnboardingStep, setCurrentOnboardingStep] = useState(0)
@@ -884,8 +890,15 @@ export default function App() {
           implementation: typescriptData.implementation,
         },
         java: {
-          stub: javaData.stub,
-          implementation: javaData.implementation,
+          stub: { 
+            path: javaData.stub.path, 
+            content: javaData.stub.content 
+          },
+          implementation: { 
+            path: javaData.implementation.path, 
+            content: javaData.implementation.content 
+          },
+          extraFiles: javaData.extraFiles
         },
       })
       setActiveFile('spec')
@@ -906,9 +919,10 @@ export default function App() {
 
   // New helper to copy active code to the clipboard
   const copyActiveCode = () => {
-    if (activeCode) {
+    if (activeCode) { 
+    
       navigator.clipboard
-        .writeText(activeCode)
+        .writeText( typeof(activeCode) === 'string' ? activeCode : activeCode.content) 
         .then(() => {
           setJustCopied(true)
           setTimeout(() => setJustCopied(false), 1500)
@@ -996,11 +1010,19 @@ export default function App() {
         zip.file('implementation.py', generatedFiles.python.implementation)
       }
     } else if (language === 'java') {
+      // console.debug( 'generatedFiles.java', generatedFiles.java)
       if (generatedFiles.java?.stub) {
-        zip.file('GraphAgentBuilder.java', generatedFiles.java.stub)
+        const { path, content } = generatedFiles.java.stub
+        zip.file(path, content)
       }
       if (generatedFiles.java?.implementation) {
-        zip.file('GraphAgentBuilderImpl.java', generatedFiles.java.implementation)
+        let { path, content } = generatedFiles.java.implementation
+        zip.file(path, content)      
+      }
+      if (generatedFiles.java?.extraFiles) {
+        for (const {path, content} of generatedFiles.java.extraFiles) {
+          zip.file(path, content)
+        }
       }
 
     } else {
@@ -1378,7 +1400,7 @@ export default function App() {
                           </button>
                           <Highlight
                             theme={themes.nightOwl}
-                            code={activeCode}
+                            code={ typeof(activeCode) === 'string' ? activeCode : activeCode.content }
                             language={activeFile === 'spec' ? 'yaml' : language === 'python' ? 'python' : language === 'java' ? 'java' : 'typescript'}
                           >
                             {({ style, tokens, getLineProps, getTokenProps }) => (
