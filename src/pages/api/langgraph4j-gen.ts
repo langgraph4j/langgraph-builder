@@ -1,11 +1,17 @@
 import { assert } from 'console'
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { spawn } from 'child_process'
+import { Source } from 'postcss'
 
-type GenerateResponse = {
-  stub?: string
-  implementation?: string
+type SourceFile = {
+  path: string
+  content: string
+}
+interface GenerateResponse {
+  stub?: SourceFile
+  implementation?: SourceFile
   error?: string
+  extraFiles?: Array<SourceFile>
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse<GenerateResponse>) {
@@ -16,11 +22,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
   try {
     const { spec, language, format } = req.body
 
-    const { stub, implementation } = await callJavaGenerator( spec )    
+    const { stub, implementation, extraFiles } = await callJavaGenerator( spec )    
     
     return res.status(200).json({
       stub,
-      implementation
+      implementation,
+      extraFiles
     })
   } catch (error) {
     console.error('Error generating code:', error)
