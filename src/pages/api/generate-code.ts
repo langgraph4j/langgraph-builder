@@ -21,10 +21,16 @@ const URL = ( req: NextApiRequest ) => {
 
 }
 
+type SourceFile = {
+  path: string
+  content: string
+}
+
 type GenerateResponse = {
-  stub?: string
-  implementation?: string
+  stub?: string | SourceFile
+  implementation?: string | SourceFile
   error?: string
+  extraFiles?: Array<SourceFile>
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse<GenerateResponse>) {
@@ -56,6 +62,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     return res.status(200).json({
       stub: data.stub,
       implementation: data.implementation,
+      extraFiles: data.extraFiles,
+      error: data.error,
     })
   } catch (error) {
     console.error('Error generating code:', error)
