@@ -1039,7 +1039,7 @@ export default function App() {
       const url = window.URL.createObjectURL(content)
       const link = document.createElement('a')
       link.href = url
-      link.download = 'langgraph-agent.zip'
+      link.download = `langgraph4j-${graphTitle}.zip`.replaceAll(' ', '-')
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
